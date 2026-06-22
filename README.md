@@ -1,124 +1,87 @@
 # Ajaia Docs
 
-A lightweight, collaborative rich-text document editor inspired by Google Docs.
+A collaborative rich-text editor with sharing, file import, and optimistic concurrency.
 
 ## Quick Start
-
-### Prerequisites
-- Node.js 20+
-- pnpm 9+
-- Docker (optional, for local Postgres)
-
-### Option 1: Docker Compose (Recommended)
 
 ```bash
 docker compose up
 ```
 
-This starts:
-- **PostgreSQL** on port 5432
-- **API** (Hono) on port 3001
-- **Web** (Next.js) on port 3000
+Open http://localhost:3000. Three users are pre-seeded — use the switcher in the top-right to demo sharing.
 
-Open http://localhost:3000 in your browser.
+<details>
+<summary>Manual setup (without Docker Compose)</summary>
 
-### Option 2: Manual Setup
+```bash
+pnpm install
+docker run -d --name ajaia-pg -e POSTGRES_DB=ajaia -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16-alpine
+cp .env.example apps/api/.env
+cd apps/api && npx prisma migrate dev && npx prisma db seed
+pnpm dev
+```
 
-1. Install dependencies:
-   ```bash
-   pnpm install
-   ```
+</details>
 
-2. Start a PostgreSQL instance (Docker or local):
-   ```bash
-   docker run -d --name ajaia-pg -e POSTGRES_DB=ajaia -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16-alpine
-   ```
+## Tech
 
-3. Set up environment:
-   ```bash
-   cp .env.example apps/api/.env
-   ```
+| | |
+|---|---|
+| **Frontend** | Next.js 14, React 18, Tailwind, Tiptap, TanStack Query |
+| **Backend** | Hono, Prisma, PostgreSQL 16 |
+| **Testing** | Vitest — 29 unit tests on pure domain functions |
 
-4. Run migrations and seed:
-   ```bash
-   cd apps/api
-   npx prisma migrate dev
-   npx prisma db seed
-   ```
+## Architecture
 
-5. Start both apps:
-   ```bash
-   pnpm dev
-   ```
+Strict layered DDD — dependencies point downward only:
 
-## Seeded Users
+```
+routes → use-cases → domain (pure functions) ← infra (Prisma, pino, axios)
+```
 
-The app comes with 3 pre-seeded users for demo purposes:
+The domain layer has **zero framework imports**. Authorization, concurrency merge, and content sanitization are pure functions, exhaustively unit-tested with no database needed.
 
-| User | Email | Color |
-|------|-------|-------|
-| Alice | alice@ajaia.dev | Red |
-| Bob | bob@ajaia.dev | Blue |
-| Carol | carol@ajaia.dev | Green |
-
-Use the user switcher in the top-right to switch between users.
-
-## Features
-
-- **Rich-text editing** with Tiptap (bold, italic, underline, headings, lists)
-- **Autosave** with debounced saves and status indicator
-- **Sharing** — owner can grant editor access to other users
-- **File import** — upload `.md`, `.txt`, or `.docx` files
-- **Optimistic concurrency** — concurrent edits detected with 409 conflict
-- **Correlated logging** — pino + AsyncLocalStorage for request tracing
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 14, React 18, Tailwind CSS, Tiptap, TanStack Query, axios |
-| Backend | Hono, TypeScript, Prisma, PostgreSQL |
-| Testing | Vitest (30 unit tests) |
-| Infrastructure | Docker Compose, pnpm workspaces |
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full design.
 
 ## Project Structure
 
 ```
-ajaia-docs/
-├── apps/
-│   ├── api/          # Hono backend (anemic tactical DDD)
-│   └── web/          # Next.js frontend
-├── packages/
-│   └── shared/       # Shared types and zod schemas
-├── docker-compose.yml
-└── pnpm-workspace.yaml
+apps/
+├── api/                # Hono backend
+│   ├── src/modules/
+│   │   ├── content/    # Tiptap JSON sanitization (pure)
+│   │   ├── docs/       # Documents — domain, repo, use-cases, routes
+│   │   ├── shares/     # Sharing — domain, repo, use-cases, routes
+│   │   ├── import/     # File import — rules, parsers, use-case, route
+│   │   └── users/      # Users — repo, use-cases, routes
+│   └── tests/unit/     # Vitest specs (pure domain only)
+└── web/                # Next.js frontend
+    └── src/
+        ├── components/ # Editor, Toolbar, ShareDialog, DocumentList
+        ├── api/        # TanStack Query hooks
+        └── lib/        # Axios client, user helper
+packages/shared/        # Result type, DomainError, contracts
 ```
 
-## API Endpoints
+## API
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/health | Health check |
-| GET | /api/users | List users |
-| GET | /api/users/me | Current user |
 | GET | /api/docs | List visible documents |
 | POST | /api/docs | Create document |
 | GET | /api/docs/:id | Get document |
 | PATCH | /api/docs/:id | Update document |
 | DELETE | /api/docs/:id | Delete document |
-| POST | /api/docs/:id/shares | Grant access |
+| POST | /api/docs/:id/shares | Grant editor access |
 | DELETE | /api/docs/:id/shares/:userId | Revoke access |
-| POST | /api/import | Import file |
+| POST | /api/import | Import .md, .txt, or .docx |
+| GET | /api/users | List users |
 
 ## Testing
 
 ```bash
-cd apps/api
-npx vitest run
+cd apps/api && npx vitest run
 ```
 
-30 unit tests covering:
-- Authorization logic (owner/grantee/stranger matrix)
-- Optimistic concurrency (version mismatch, empty title)
-- Content sanitization (XSS prevention, allowlist enforcement)
-- Import rules (size limits, extension validation)
+29 tests covering authorization, optimistic concurrency, content sanitization, and import rules — all pure functions, no database required.
