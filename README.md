@@ -33,24 +33,26 @@ Content is stored as **Tiptap JSON**, not HTML. The sanitizer walks the JSON tre
 
 ## Getting Started
 
+### Local (without Docker)
+
+Requires **Node.js 20+**, **pnpm**, and a **PostgreSQL 16** instance running on `localhost:5432`.
+
 ```bash
-docker compose up
+pnpm install
+cp .env.example apps/api/.env
+cd apps/api && npx prisma migrate dev && npx prisma db seed && cd ../..
+pnpm dev
 ```
 
 Open http://localhost:3000. Three users (Alice, Bob, Carol) are pre-seeded — use the switcher in the top-right to demo sharing.
 
-<details>
-<summary>Manual setup (without Docker Compose)</summary>
+### Docker
 
 ```bash
-pnpm install
-docker run -d --name ajaia-pg -e POSTGRES_DB=ajaia -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16-alpine
-cp .env.example apps/api/.env
-cd apps/api && npx prisma migrate dev && npx prisma db seed
-pnpm dev
+docker compose up
 ```
 
-</details>
+Open http://localhost:3000.
 
 ## Project Structure
 
