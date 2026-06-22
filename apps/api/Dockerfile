@@ -11,7 +11,7 @@ COPY . .
 ENV NODE_PATH=/app/node_modules
 RUN npx prisma generate --schema=./apps/api/prisma/schema.prisma
 EXPOSE 3001
-CMD ["sh", "-c", "NODE_PATH=/app/node_modules ./node_modules/.bin/tsx watch apps/api/src/main.ts"]
+CMD ["sh", "-c", "cd apps/api && NODE_PATH=/app/node_modules ./../../node_modules/.bin/tsx watch src/main.ts"]
 
 FROM base AS deps
 WORKDIR /app
