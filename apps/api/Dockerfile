@@ -1,4 +1,5 @@
 FROM node:20-slim AS base
+RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 RUN npm install -g pnpm@9
 
 FROM base AS dev
@@ -9,9 +10,10 @@ COPY packages/shared/package.json ./packages/shared/
 RUN pnpm install
 COPY . .
 ENV NODE_PATH=/app/node_modules
+ENV PATH="/app/node_modules/.bin:${PATH}"
 RUN npx prisma generate --schema=./apps/api/prisma/schema.prisma
 EXPOSE 3001
-CMD ["sh", "-c", "cd apps/api && NODE_PATH=/app/node_modules PATH=/app/node_modules/.bin:$PATH tsx watch src/main.ts"]
+CMD ["sh", "-c", "cd apps/api && prisma db push --schema=prisma/schema.prisma --skip-generate && tsx watch src/main.ts"]
 
 FROM base AS deps
 WORKDIR /app
