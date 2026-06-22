@@ -9,9 +9,9 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared/package.json ./packages/shared/
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm run --filter=api db:generate
+    RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
+    COPY . .
+    RUN pnpm run --filter=api db:generate
 
 FROM build AS dev
 EXPOSE 3001
