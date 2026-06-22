@@ -1,23 +1,24 @@
 FROM node:20-slim AS base
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
-RUN npm install -g pnpm@9
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME/bin:$PATH"
+RUN corepack enable
 
 FROM base AS dev
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml .npmrc* pnpm-lock.yaml* ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
-RUN pnpm install
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 EXPOSE 3000
-CMD ["sh", "-c", "cd apps/web && NODE_PATH=/app/node_modules PATH=/app/node_modules/.bin:$PATH next dev"]
+CMD ["pnpm", "--filter", "web", "dev"]
 
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml .npmrc* pnpm-lock.yaml* ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/shared/package.json ./packages/shared/
-RUN pnpm install
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --prod --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
@@ -25,7 +26,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY . .
-RUN cd apps/web && NODE_PATH=/app/node_modules PATH=/app/node_modules/.bin:$PATH next build
+RUN pnpm --filter web build
 
 FROM base AS runner
 WORKDIR /app
